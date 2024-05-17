@@ -50,9 +50,7 @@ ws.onmessage = event => {
         }
     } else {
         // Handle WebRTC signaling
-        if (data.type === 'offer' || data.type === 'answer' || data.type === 'candidate') {
-            handleSignalingData(data);
-        }
+        handleSignalingData(data);
     }
 };
 

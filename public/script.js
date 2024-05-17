@@ -24,7 +24,7 @@ function initMap() {
 
             map.setView(pos, 13);
 
-            const message = JSON.stringify({ id: userId, position: pos });
+            const message = JSON.stringify({ type: 'position', id: userId, position: pos });
             ws.send(message);
 
             fetch('/user', {
@@ -39,11 +39,20 @@ function initMap() {
 const ws = new WebSocket('ws://localhost:3000');
 
 ws.onmessage = event => {
-    const { id, position } = JSON.parse(event.data);
-    if (!markers[id]) {
-        markers[id] = L.marker(position).addTo(map).bindPopup('User ' + id).openPopup();
+    const data = JSON.parse(event.data);
+
+    if (data.type === 'position') {
+        const { id, position } = data;
+        if (!markers[id]) {
+            markers[id] = L.marker(position).addTo(map).bindPopup('User ' + id).openPopup();
+        } else {
+            markers[id].setLatLng(position).openPopup();
+        }
     } else {
-        markers[id].setLatLng(position).openPopup();
+        // Handle WebRTC signaling
+        if (data.type === 'offer' || data.type === 'answer' || data.type === 'candidate') {
+            handleSignalingData(data);
+        }
     }
 };
 
@@ -62,36 +71,29 @@ peerConnection.ontrack = event => {
     remoteVideo.srcObject = event.streams[0];
 };
 
-// Handling WebRTC signaling
-ws.onmessage = event => {
-    const data = JSON.parse(event.data);
-
-    if (data.type === 'offer') {
-        peerConnection.setRemoteDescription(new RTCSessionDescription(data));
-        peerConnection.createAnswer().then(answer => {
-            peerConnection.setLocalDescription(answer);
-            ws.send(JSON.stringify(answer));
-        });
-    } else if (data.type === 'answer') {
-        peerConnection.setRemoteDescription(new RTCSessionDescription(data));
-    } else if (data.type === 'candidate') {
-        peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
-    } else {
-        // Handle position updates as before
-        const { id, position } = data;
-        if (!markers[id]) {
-            markers[id] = L.marker(position).addTo(map).bindPopup('User ' + id).openPopup();
-        } else {
-            markers[id].setLatLng(position).openPopup();
-        }
-    }
-};
-
 peerConnection.onicecandidate = event => {
     if (event.candidate) {
         ws.send(JSON.stringify({ type: 'candidate', candidate: event.candidate }));
     }
 };
+
+function handleSignalingData(data) {
+    switch (data.type) {
+        case 'offer':
+            peerConnection.setRemoteDescription(new RTCSessionDescription(data));
+            peerConnection.createAnswer().then(answer => {
+                peerConnection.setLocalDescription(answer);
+                ws.send(JSON.stringify(answer));
+            });
+            break;
+        case 'answer':
+            peerConnection.setRemoteDescription(new RTCSessionDescription(data));
+            break;
+        case 'candidate':
+            peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+            break;
+    }
+}
 
 function startCall() {
     peerConnection.createOffer().then(offer => {
@@ -99,9 +101,6 @@ function startCall() {
         ws.send(JSON.stringify(offer));
     });
 }
-
-// Call startCall() when you want to initiate a call
-
 
 if ('Accelerometer' in window) {
     let accelerometer = new Accelerometer({ frequency: 60 });

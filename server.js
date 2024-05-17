@@ -8,7 +8,6 @@ const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
 app.use(express.static(path.join(__dirname, 'public')));
-
 app.use(express.json());
 
 let users = [];
@@ -26,14 +25,25 @@ app.get('/positions', (req, res) => {
 
 wss.on('connection', ws => {
     console.log('Nouvelle connexion WebSocket');
+
     ws.on('message', message => {
-        const { id, position } = JSON.parse(message);
-        const user = users.find(user => user.id === id);
-        if (user) {
-            user.position = position;
+        const data = JSON.parse(message);
+        if (data.type === 'position') {
+            const { id, position } = data;
+            const user = users.find(user => user.id === id);
+            if (user) {
+                user.position = position;
+                wss.clients.forEach(client => {
+                    if (client.readyState === WebSocket.OPEN) {
+                        client.send(JSON.stringify({ type: 'position', id, position }));
+                    }
+                });
+            }
+        } else {
+            // Handle WebRTC signaling
             wss.clients.forEach(client => {
-                if (client.readyState === WebSocket.OPEN) {
-                    client.send(JSON.stringify({ id, position }));
+                if (client !== ws && client.readyState === WebSocket.OPEN) {
+                    client.send(message);
                 }
             });
         }

@@ -1,0 +1,31 @@
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+}
+
+h1 {
+    text-align: center;
+}
+
+#map {
+    height: 400px;
+    width: 100%;
+}
+
+#video-container {
+    display: flex;
+    justify-content: center;
+    margin-top: 20px;
+}
+
+video {
+    width: 300px;
+    margin: 0 10px;
+    border: 1px solid #ddd;
+}
+
+#accelerometer-data {
+    text-align: center;
+    margin-top: 20px;
+}
